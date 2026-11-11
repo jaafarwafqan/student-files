@@ -24,6 +24,18 @@
   --k0:#7d8894; --k1:#f07a72; --k2:#3fc296; --k3:#b697e6; --k4:#6ea3f5; --k5:#f0994a; --k6:#9aa7b4; --k7:#56616d;
   color-scheme:dark }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
+.dm .top,.dm .search,.dm .hint,.dm #results,.dm #room,.dm #legend{display:none}
+.dm .panel{border-top-width:0;padding:0;overflow:hidden;gap:0}
+.dm .phead{background:var(--c);padding:16px 18px}
+.dm .phead h3{color:var(--surface);font-size:26px}
+.dm .phead p{color:var(--surface);opacity:.9}
+.dm .org{font-size:12.5px;font-weight:600}
+.dm .files,.dm .pf{margin:14px 18px}
+.dm .pf{width:calc(100% - 36px)}
+.pf{font:500 17px/1.4 var(--body);padding:12px 14px;border-radius:12px;border:2px solid var(--line);background:var(--bg);color:var(--ink);outline:none}
+.pf:focus{border-color:var(--c)}
+.files li.me{scroll-margin:80px}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.6;margin:0}
 .wrap{max-width:1040px;margin:0 auto;padding-block:22px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:20px}
 .top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:6px 20px}
@@ -135,7 +147,7 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15p
   $('cnt').textContent = total + ' أضبارة · ' + nd + ' درجاً · ' + D.stages.length + ' مراحل';
   $('legend').innerHTML = D.cats.map(function(c, i){ return '<span><i class="dot" style="--k:var(--k'+i+')"></i>'+esc(c)+'</span>'; }).join('');
 
-  var open = null, focus = null;   // open drawer key, highlighted student
+  var open = null, focus = null, dm = false, wrap = document.querySelector('.wrap');   // open drawer key, highlighted student
 
   function key(s, d){ return 'm' + s.n + '-d' + d.num; }
 
@@ -157,9 +169,10 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15p
     var p = $('panel'), x = open && find(open);
     if(!x){ p.hidden = true; return; }
     p.hidden = false; p.className = 'panel s' + x.s.n;
-    p.innerHTML = '<div class="phead"><div><h3>المرحلة '+esc(x.s.stage)+' · الدرج '+x.d.num+'</h3><p>'+x.d.st.length+' أضبارة · من '+esc(two(x.d.st[0][0]))+' إلى '+esc(two(x.d.st[x.d.st.length-1][0]))+'</p></div><button type="button" class="back" id="close">إغلاق الدرج</button></div>' +
+    p.innerHTML = '<div class="phead"><div>'+(dm?'<p class="org">كلية التمريض · جامعة الكوفة · الدراسة المسائية</p>':'')+'<h3>المرحلة '+esc(x.s.stage)+' · الدرج '+x.d.num+'</h3><p>'+x.d.st.length+' أضبارة · من '+esc(two(x.d.st[0][0]))+' إلى '+esc(two(x.d.st[x.d.st.length-1][0]))+'</p></div><button type="button" class="back" id="close">'+(dm?'الدليل الكامل والبحث في كل الأدراج':'إغلاق الدرج')+'</button></div>' +
+      (dm?'<input id="pf" class="pf" type="text" inputmode="search" autocomplete="off" placeholder="ابحث داخل هذا الدرج…" aria-label="بحث داخل الدرج">':'') +
       '<ol class="files">' + x.d.st.map(function(r, i){
-        return '<li'+(focus===open+':'+(i+1)?' class="me" id="me"':'')+'><span class="n">'+(i+1)+'</span><span class="nm">'+esc(r[0])+'<small><i class="dot" style="--k:var(--k'+r[2]+')"></i>'+esc(r[1]||'القناة غير مذكورة')+' · '+esc(r[3])+'</small></span></li>';
+        return '<li'+(focus===open+':'+(i+1)?' class="me" id="me"':'')+' data-f="'+esc(fold(r[0]))+'"><span class="n">'+(i+1)+'</span><span class="nm">'+esc(r[0])+'<small><i class="dot" style="--k:var(--k'+r[2]+')"></i>'+esc(r[1]||'القناة غير مذكورة')+' · '+esc(r[3])+'</small></span></li>';
       }).join('') + '</ol>';
   }
 
@@ -207,11 +220,15 @@ body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15p
   $('clr').addEventListener('click', function(){ $('q').value=''; search(); $('q').focus(); });
   $('room').addEventListener('click', function(e){ var b = e.target.closest('.drawer'); if(b) openDrawer(b.dataset.k); });
   $('results').addEventListener('click', function(e){ var b = e.target.closest('.hit'); if(b) openDrawer(b.dataset.k, b.dataset.p); });
-  $('panel').addEventListener('click', function(e){ if(e.target.id==='close'){ open=null; focus=null; renderPanel(); search(); try{ history.replaceState(null,'','#'); }catch(x){} } });
+  $('panel').addEventListener('click', function(e){ if(e.target.id==='close'){ open=null; focus=null; dm=false; wrap.classList.remove('dm'); window.scrollTo(0,0); renderPanel(); search(); try{ history.replaceState(null,'','#'); }catch(x){} } });
 
-  var h = (location.hash||'').slice(1);
-  if(h && find(h)){ open = h; }
-  renderPanel(); search();
+  $('panel').addEventListener('input', function(e){ if(e.target.id!=='pf') return;
+    var t = fold(e.target.value.trim()).split(/\s+/).filter(Boolean);
+    [].forEach.call($('panel').querySelectorAll('.files li'), function(li){ li.hidden = !t.every(function(x){ return li.dataset.f.indexOf(x) >= 0; }); }); });
+  function fromHash(){ var h = (location.hash||'').slice(1);
+    if(h && find(h)){ open = h; focus = null; dm = true; wrap.classList.add('dm'); $('q').value = ''; renderPanel(); search(); window.scrollTo(0,0); return true; } return false; }
+  window.addEventListener('hashchange', fromHash);
+  if(!fromHash()){ renderPanel(); search(); }
 })();
 </script>
 </body></html>
